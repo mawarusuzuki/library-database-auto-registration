@@ -4,23 +4,17 @@ from dataclasses import dataclass, field
 
 
 @dataclass
-class Book:
+class KindleBook:
+    asin: str
     title: str
-    id: int | None = None
-    isbn: str | None = None
+    amazon_url: str
     author: str | None = None
-    publisher: str | None = None
-    published_year: int | None = None
-    genre: str | None = None
-    shelf_location: str | None = None
-    memo: str | None = None
-    created_at: str | None = None
-    updated_at: str | None = None
-    deleted_at: str | None = None
+    cover_url: str | None = None
+    type_estimate: str | None = None
 
 
 @dataclass
-class ImportResult:
+class RegisterResult:
     success: int = 0
     skipped: int = 0
     errors: int = 0

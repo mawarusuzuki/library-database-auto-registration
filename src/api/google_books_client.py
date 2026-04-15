@@ -1,54 +1,42 @@
 from __future__ import annotations
 
-from src.api.base_client import BaseApiClient
-from src.models.book import Book
+import logging
 
-_GOOGLE_URL = "https://www.googleapis.com/books/v1/volumes"
+import requests
+
+logger = logging.getLogger(__name__)
+_URL = "https://www.googleapis.com/books/v1/volumes"
 
 
-class GoogleBooksClient(BaseApiClient):
-    def __init__(self, api_key: str = "") -> None:
+class GoogleBooksClient:
+    def __init__(self, api_key: str = "", timeout: int = 10) -> None:
         self._api_key = api_key
+        self._timeout = timeout
 
-    def fetch_by_isbn(self, isbn: str) -> Book | None:
-        params: dict = {"q": f"isbn:{isbn}", "maxResults": "1"}
+    def get_cover_url(self, title: str, author: str | None = None) -> str | None:
+        query = f"intitle:{title}"
+        if author:
+            query += f"+inauthor:{author}"
+
+        params: dict = {"q": query, "maxResults": "1"}
         if self._api_key:
             params["key"] = self._api_key
 
-        resp = self._request_with_retry(_GOOGLE_URL, params)
-        if resp is None:
-            return None
-
         try:
+            resp = requests.get(_URL, params=params, timeout=self._timeout)
+            resp.raise_for_status()
             data = resp.json()
-        except ValueError:
+        except Exception as e:
+            logger.warning("Google Books API error: %s", e)
             return None
 
         items = data.get("items")
         if not items:
             return None
 
-        info = items[0].get("volumeInfo", {})
-        title = info.get("title")
-        if not title:
-            return None
-
-        authors = info.get("authors", [])
-        year: int | None = None
-        date_str: str = info.get("publishedDate", "")
-        if date_str:
-            try:
-                year = int(date_str[:4])
-            except ValueError:
-                pass
-
-        categories = info.get("categories", [])
-
-        return Book(
-            isbn=isbn,
-            title=title,
-            author=" / ".join(authors) if authors else None,
-            publisher=info.get("publisher"),
-            published_year=year,
-            genre=categories[0] if categories else None,
-        )
+        image_links = items[0].get("volumeInfo", {}).get("imageLinks", {})
+        url = image_links.get("thumbnail") or image_links.get("smallThumbnail")
+        if url:
+            # http → https に統一
+            return url.replace("http://", "https://")
+        return None
